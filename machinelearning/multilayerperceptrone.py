@@ -1,83 +1,56 @@
+
+
 import numpy as np
+from keras.models import Sequential
+from keras.layers import Dense, Activation, Dropout
+from keras.utils import to_categorical
+from keras.datasets import mnist
 
 
-
-def int_r(num):
-    num = int(num + (0.5 if num > 0 else -0.5))
-    return num
+(x_train, y_train), (x_test, y_test) = mnist.load_data()
 
 
+num_labels = len(np.unique(y_train))
 
-class MLP:
-    def __init__(self, lr, epochs):
-        self.lr=lr
-        self.epochs=epochs
-        self.w1=np.random.randn(3,5)
-        self.w2 = np.random.randn(6, 1)
+y_train = to_categorical(y_train)
+y_test = to_categorical(y_test)
 
 
-    def sigmoid(self, x):
-        return 1 / (1 + np.exp(-x))
-
-    def sigmoid_der(self, x):
-        return self.sigmoid(x) * (1 - self.sigmoid(x))
-
-    def func(self, X, w):
-
-        X = np.concatenate((np.ones((len(X), 1)), np.array(X)), axis=1)
+image_size = x_train.shape[1]
+input_size = image_size * image_size
 
 
-
-        return np.matmul(X, w)
-
-    def predict(self, X):
-        print(X)
-        X=np.array([X])
-
-        x1 = self.func(X, self.w1)
-
-        z1 = self.sigmoid(x1)
-        x2 = self.func(z1, self.w2)
-        z2 = self.sigmoid(x2)
-        return int_r(z2[0,0])
-
-    def train(self, X, y):
-        n=len(X)
-
-        y=np.array(y).reshape((4,1))
-
-        for i in range(self.epochs):
-            # прямое распространение
-            x1=self.func(X, self.w1)
-
-            z1=self.sigmoid(x1)
-            x2=self.func(z1, self.w2)
-            z1 = np.concatenate((np.ones((len(z1), 1)), np.array(z1)), axis=1)
-            z2=self.sigmoid(x2)
+x_train = np.reshape(x_train, [-1, input_size])
+x_train = x_train.astype('float32') / 255
+x_test = np.reshape(x_test, [-1, input_size])
+x_test = x_test.astype('float32') / 255
 
 
+batch_size = 128
+hidden_units = 256
+dropout = 0.45
 
-            #обратное распространение
-            d=z2-y
-            d2=np.matmul(z1.T, d)
-            d1=np.matmul( np.concatenate((np.ones((len(X), 1)), np.array(X)), axis=1).T, d.dot(self.w2[1:,:].T)*self.sigmoid_der(x1))
+model = Sequential()
+model.add(Dense(hidden_units, input_dim=input_size))
+model.add(Activation('relu'))
+model.add(Dropout(dropout))
+model.add(Dense(hidden_units))
+model.add(Activation('relu'))
+model.add(Dropout(dropout))
+model.add(Dense(num_labels))
 
-            self.w1-=self.lr*(1/n)*d1
-            self.w2 -= self.lr * (1 / n) * d2
+model.add(Activation('softmax'))
+model.summary()
+
+model.compile(loss='categorical_crossentropy',
+              optimizer='adam',
+              metrics=['accuracy'])
+
+model.fit(x_train, y_train, epochs=20, batch_size=batch_size)
 
 
-
-
-
-
-
-
-
-        return
-
-X=[[0,0], [0,1], [1, 0], [1,1]]
-y=[0,1,1,0]
-t=MLP(lr=0.09, epochs=15000)
-t.train(X, y)
-print(t.predict([0,1]))
-
+_, acc = model.evaluate(x_test,
+                        y_test,
+                        batch_size=batch_size,
+                        verbose=0)
+print("\nTest accuracy: %.1f%%" % (100.0 * acc))
